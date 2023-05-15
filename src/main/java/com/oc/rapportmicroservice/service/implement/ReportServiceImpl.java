@@ -7,6 +7,7 @@ import com.oc.rapportmicroservice.model.Report;
 import com.oc.rapportmicroservice.service.ReportService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -22,6 +23,18 @@ public class ReportServiceImpl implements ReportService {
 
     private final RestTemplate restTemplate;
 
+    @Value("${API_PATIENTS_DOCKER_PAT_ID}")
+    private String patientUrlDockerByPatId;
+
+    @Value("${API_NOTES_DOCKER_PAT_ID}")
+    private String noteUrlDockerByPatId;
+
+    @Value("${API_PATIENTS_DOCKER_PAT_NAME}")
+    private String patientUrlDockerByPatName;
+
+    @Value("${API_NOTES_DOCKER_PAT_NAME}")
+    private String noteUrlDockerByPatName;
+
     public ReportServiceImpl(RestTemplate restTemplate) {
         this.restTemplate = restTemplate;
     }
@@ -30,11 +43,13 @@ public class ReportServiceImpl implements ReportService {
     public Report getReportByPatId(Long patientId) {
         logger.debug("getReportByPatId method starts here, from ReportServiceImpl");
 
+        //Patient patient = restTemplate.getForObject(patientUrlLocalByPatId, Patient.class, patientId);
+        Patient patient = restTemplate.getForObject(patientUrlDockerByPatId, Patient.class, patientId);
         //Patient patient = restTemplate.getForObject("http://localhost:8081/api/patients/{id}", Patient.class, patientId);
-        Patient patient = restTemplate.getForObject("http://patient-microservice:8081/api/patients/{id}", Patient.class, patientId);
 
+        //Note[] notes = restTemplate.getForObject(noteUrlLocalByPatId, Note[].class, patientId);
+        Note[] notes = restTemplate.getForObject(noteUrlDockerByPatId, Note[].class, patientId);
         //Note[] notes = restTemplate.getForObject("http://localhost:8082/api/notes/by-patId/{patId}", Note[].class, patientId);
-        Note[] notes = restTemplate.getForObject("http://note-microservice:8082/api/notes/by-patId/{patId}", Note[].class, patientId);
 
         if (patient == null) {
             logger.error("No Patient found with this PatientId:{%d}".formatted(patientId));
@@ -49,11 +64,13 @@ public class ReportServiceImpl implements ReportService {
     @Override
     public Report getReportByPatLastName(String patientName) {
         logger.debug("getReportByPatLastName method starts here, from ReportController");
-        //Patient patient = restTemplate.getForObject("http://localhost:8081/api/patient?lastName={lastName}", Patient.class, patientName);
-        Patient patient = restTemplate.getForObject("http://patient-microservice:8081/api/patient?lastName={lastName}", Patient.class, patientName);
+        //Patient patient = restTemplate.getForObject(patientUrlLocalByPatName, Patient.class, patientName);
+        Patient patient = restTemplate.getForObject(patientUrlDockerByPatName, Patient.class, patientName);
 
+
+        //Note[] notes = restTemplate.getForObject(noteUrlLocalByPatName, Note[].class, patientName);
+        Note[] notes = restTemplate.getForObject(noteUrlDockerByPatName, Note[].class, patientName);
         //Note[] notes = restTemplate.getForObject("http://localhost:8082/api/notes/by-lastName/{lastName}", Note[].class, patientName);
-        Note[] notes = restTemplate.getForObject("http://notre-microservice:8082/api/notes/by-lastName/{lastName}", Note[].class, patientName);
 
         if (patient == null) {
             logger.error("No Patient found with this PatientLastName:{%s}".formatted(patientName));
@@ -79,19 +96,19 @@ public class ReportServiceImpl implements ReportService {
 
         riskLevel = calculateRiskLevel(age, patient.sex(), termsTrigger);
 
-        Report report = getReport(patient, riskLevel, termsTrigger, age);
+        Report report = getReport(patient, riskLevel, age);
 
         logger.info("analyzeNotes method has been successfully called and, from ReportServiceImpl");
         return report;
     }
 
-    private static Report getReport(Patient patient, String riskLevel, long termsTrigger, long age) {
+    private static Report getReport(Patient patient, String riskLevel, long age) {
         logger.debug("getReport method get called, from ReportController");
         Report report = new Report();
         report.setPatId(patient.id());
         report.setPatFullName(patient.firstName() + " " + patient.lastName());
 
-        report.setDiabetesAssessment("(Age: %d, Gender: %s, Trigger words: %d, Risk level: %s)".formatted(age, patient.sex(), termsTrigger, riskLevel));
+        report.setDiabetesAssessment("Age: %d, Gender: %s, Risk level: %s".formatted(age, patient.sex(), riskLevel));
 
         logger.info("getReport method has been successfully called and generated the report, from ReportServiceImpl");
         return report;
@@ -108,40 +125,44 @@ public class ReportServiceImpl implements ReportService {
         return ChronoUnit.YEARS.between(datOfBirth, LocalDate.now());
     }
 
-    private long countTriggerWords(List<String> comments) {
+    public long countTriggerWords(List<String> comments) {
         logger.debug("countTriggerWords method starts here, from ReportController");
         List<String> triggerWords = Arrays.asList(
-                "hémoglobine", "microalbumine", "taille", "poids", "fumeur", "anormal", "cholestérol", "vertige", "rechute", "réaction", "anticorps", "anormale", "anormales", "anormaux");
+                "hémoglobine a1c", "microalbumine", "taille", "poids", "fumeur", "anormal", "cholestérol", "vertige", "rechute", "réaction", "anticorps");
 
         long count = comments.stream()
                 .map(String::toLowerCase)
-                .map(comment -> comment.replaceAll("[^a-zA-ZÀ-ÖØ-öø-ÿ0-9\\s]+", " ").replaceAll("\n", " ").replaceAll("'", " "))
-                .flatMap(comment -> Arrays.stream(comment.split("\\s+")))
+                .flatMap(comment -> triggerWords.stream().filter(comment::contains))
                 .distinct()
-                .filter(triggerWords::contains)
                 .peek(System.out::println)
                 .count();
 
-        System.out.println("The number of the occurrences of the Trigger Words : " + count);
+        System.out.println("The number of occurrences of the Trigger Words: " + count);
 
-        logger.info("countTriggerWords method has been successfully called and calculate the number of trigger words:{}, from ReportServiceImpl", count);
+        logger.info("countTriggerWords method has been successfully called and calculated the number of trigger words: {}, from ReportServiceImpl", count);
         return count;
     }
 
     public String calculateRiskLevel(long age, String gender, long numTriggers) {
-        logger.debug("calculateRiskLevel method starts here, from ReportServiceImpl");
-        if (numTriggers >= 0 && numTriggers < 2) {
+        if (numTriggers == 0) {
             return "None";
         } else if (numTriggers >= 2 && age >= 30 && numTriggers < 6) {
             return "Borderline";
-        } else if ((gender.equals("M") && age <= 30 && numTriggers >= 3 && numTriggers <= 4) ||
-                (gender.equals("F") && age <= 30 && numTriggers >= 4 && numTriggers <= 6) || (age > 30 && numTriggers >= 6 && numTriggers <= 7)) {
+        } else if (gender.equals("M") && age <= 30 && (numTriggers == 3 || numTriggers == 4)) {
             return "In Danger";
-        } else if ((gender.equals("M") && age <= 30 && numTriggers >= 5) ||
-                (gender.equals("F") && age <= 30 && numTriggers >= 7) || (age > 30 && numTriggers >= 8)) {
+        } else if (gender.equals("F") && age <= 30 && (numTriggers >= 4 && numTriggers < 7)) {
+            return "In Danger";
+        } else if (age > 30 && numTriggers >= 6 && numTriggers < 8) {
+            return "In Danger";
+        } else if (gender.equals("M") && age <= 30 && numTriggers >= 5) {
+            return "Early onset";
+        } else if (gender.equals("F") && (age <= 30 && numTriggers >= 7)) {
+            return "Early onset";
+        } else if (age > 30 && numTriggers >= 8) {
             return "Early onset";
         } else {
-            return "Unkown";
+            return "Unknown";
         }
     }
+
 }
