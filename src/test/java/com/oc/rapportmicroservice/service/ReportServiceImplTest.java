@@ -10,119 +10,128 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class ReportServiceImplTest {
     @Mock
-    private RestTemplate restTemplate;
+    private PatientService patientService;
+    @Mock
+    private NoteService noteService;
+
     @InjectMocks
     private ReportServiceImpl reportService;
-
     @Test
     void testGetReportByPatIdShouldReturnReport() {
+        // Given
         Long patientId = 5L;
-       //String patientUrl = "http://patient-service/api/patients/{id}";
-        String patientUrl = "http://localhost:8081/api/patients/{id}";
-        //String noteUrl = "http://note-service/api/notes/by-patId/{id}";
-       String noteUrl = "http://localhost:8082/api/notes/by-patId/{patId}";
-
         Patient patient = new Patient(patientId, "Doe", "John",
                 LocalDate.of(1983, 10, 18), "M", "31 Box Street", "222-556-4123");
 
-        when(restTemplate.getForObject(patientUrl, Patient.class, patientId)).thenReturn(patient);
+        when(patientService.getPatientByPatId(patientId)).thenReturn(patient);
 
         Note[] notes = {
                 new Note(5L, "Doe", "Comment 1", LocalDate.now()),
                 new Note(5L, "Doe", "Comment 2", LocalDate.now())
         };
 
-        when(restTemplate.getForObject(noteUrl, Note[].class, patientId)).thenReturn(notes);
-
+        when(noteService.getNotesByPatId(patientId)).thenReturn(notes);
 
         // When
         Report report = reportService.getReportByPatId(patientId);
 
         // Then
-        assertThat(report.getPatId()).isEqualTo(patientId);
-        assertThat(report.getPatFullName()).isEqualTo("John Doe");
+        assertThat(report.getPatId()).isEqualTo(5);
 
-        verify(restTemplate, times(1)).getForObject(patientUrl, Patient.class, patientId);
-        verify(restTemplate, times(1)).getForObject(noteUrl, Note[].class, patientId);
+        verify(patientService, times(1)).getPatientByPatId(anyLong());
+        verify(noteService, times(1)).getNotesByPatId(anyLong());
 
     }
 
     @Test
-    void testGetReportByPatIdShouldThrowResourceNotFoundException() {
+    void testGetReportByPatIdShouldThrowError() {
         // Given
         Long patientId = 5L;
-        //String patientUrl = "http://patient-service/api/patients/{id}";
-        String patientUrl = "http://localhost:8081/api/patients/{id}";
-
-        when(restTemplate.getForObject(patientUrl, Patient.class, patientId)).thenReturn(null);
-
-        // Then
-        assertThatThrownBy(() -> reportService.getReportByPatId(patientId))
-                .isInstanceOf(ResourceNotFoundException.class)
-                .hasMessageContaining("No Patient found with this patient id:{%d} in the database.".formatted(patientId));
-
-    }
-    @Test
-    void testGetReportByPatLastName() {
-        Long patientId = 5L;
-        //String patientUrl = "http://patient-microservice:8081/api/patient?lastName={lastName}";
-        String patientUrl = "http://localhost:8081/api/patient?lastName={lastName}";
-        //String noteUrl = "http://note-microservice:8082/api/notes/by-lastName/{lastName}";
-        String noteUrl = "http://localhost:8082/api/notes/by-lastName/{lastName}";
-
         Patient patient = new Patient(patientId, "Doe", "John",
                 LocalDate.of(1983, 10, 18), "M", "31 Box Street", "222-556-4123");
 
-        when(restTemplate.getForObject(patientUrl, Patient.class, patient.lastName())).thenReturn(patient);
+        when(patientService.getPatientByPatId(patientId)).thenReturn(patient);
+
+        Note[] notes = {};
+
+        when(noteService.getNotesByPatId(patientId)).thenReturn(notes);
+
+        // then
+
+        assertThatThrownBy(()-> reportService.getReportByPatId(patientId))
+                .isInstanceOf(ResourceNotFoundException.class)
+                        .hasMessageContaining("No notes found for patient id: " + patientId + " in the database.");
+
+        verify(patientService, times(1)).getPatientByPatId(anyLong());
+        verify(noteService, times(1)).getNotesByPatId(anyLong());
+
+    }
+
+    @Test
+    void testGetReportByPatLastNameShouldReturnReport() {
+        // Given
+        Long patientId = 5L;
+        Patient patient = new Patient(patientId, "Doe", "John",
+                LocalDate.of(1983, 10, 18), "M", "31 Box Street", "222-556-4123");
+
+        when(patientService.getPatientByPatLastName("Doe")).thenReturn(patient);
 
         Note[] notes = {
                 new Note(5L, "Doe", "Comment 1", LocalDate.now()),
                 new Note(5L, "Doe", "Comment 2", LocalDate.now())
         };
 
-        when(restTemplate.getForObject(noteUrl, Note[].class, patient.lastName())).thenReturn(notes);
-
+        when(noteService.getNotesByPatLastName("Doe")).thenReturn(notes);
 
         // When
-        Report report = reportService.getReportByPatLastName(patient.lastName());
+        Report report = reportService.getReportByPatLastName("Doe");
 
         // Then
         assertThat(report.getPatId()).isEqualTo(patientId);
         assertThat(report.getPatFullName()).isEqualTo("John Doe");
 
-        verify(restTemplate, times(1)).getForObject(patientUrl, Patient.class, patient.lastName());
-        verify(restTemplate, times(1)).getForObject(noteUrl, Note[].class, patient.lastName());
-    }
-    @Test
-    void testGetReportByPatLastNameShouldThrowResourceNotFoundException() {
-        // Given
-        String patientLastName = "lastName";
-        //String patientUrl = "http://patient-microservice:8081/api/patient?lastName={lastName}";
-        String patientUrl = "http://localhost:8081/api/patient?lastName={lastName}";
+        verify(patientService, times(1)).getPatientByPatLastName(anyString());
+        verify(noteService, times(1)).getNotesByPatLastName(anyString());
 
-        when(restTemplate.getForObject(patientUrl, Patient.class, patientLastName)).thenReturn(null);
+    }
+
+    @Test
+    void testGetReportByPatLastNameShouldThrowError() {
+        // Given
+        Long patientId = 5L;
+        Patient patient = new Patient(patientId, "Doe", "John",
+                LocalDate.of(1983, 10, 18), "M", "31 Box Street", "222-556-4123");
+
+        when(patientService.getPatientByPatLastName("Doe")).thenReturn(patient);
+
+        Note[] notes = {};
+
+        when(noteService.getNotesByPatLastName("Doe")).thenReturn(notes);
 
         // Then
-        assertThatThrownBy(() -> reportService.getReportByPatLastName("lastName"))
+
+        assertThatThrownBy(() -> reportService.getReportByPatLastName("Doe"))
                 .isInstanceOf(ResourceNotFoundException.class)
-                .hasMessageContaining("No Patient found with this patient id:{%s} in the database.".formatted(patientLastName));
+                        .hasMessageContaining("No notes found for patient lastName: " + patient.lastName() + " in the database.");
+
+        verify(patientService, times(1)).getPatientByPatLastName(anyString());
+        verify(noteService, times(1)).getNotesByPatLastName(anyString());
 
     }
+
     @Test
     void testCountTriggerWordsShouldReturnZero() {
         // Given
@@ -134,7 +143,6 @@ class ReportServiceImplTest {
         // Then
         assertThat(totalNumberOfTriggers).isEqualTo(0);
     }
-
     @Test
     void testCountTriggerWordsShouldReturnTwo() {
         // Given
@@ -147,7 +155,7 @@ class ReportServiceImplTest {
         assertThat(totalNumberOfTriggers).isEqualTo(2);
     }
     @Test
-    void getCalculateRiskLevelWhenNumTriggerEqualsToZero() {
+    void testGetCalculateRiskLevelWhenNumTriggerEqualsToZero() {
         // Given
         long age = 35;
         String gender = "M";
@@ -160,9 +168,8 @@ class ReportServiceImplTest {
         assertThat(riskLevel).isEqualTo("None");
 
     }
-
     @Test
-    void getCalculateRiskLevelWhenNumTriggerEqualsToTwoAndAgeMoreThen30() {
+    void testGetCalculateRiskLevelWhenNumTriggerEqualsToTwoAndAgeMoreThen30() {
         // Given
         long age = 35;
         String gender = "M";
@@ -177,7 +184,7 @@ class ReportServiceImplTest {
     }
 
     @Test
-    void getCalculateRiskLevelWhenNumTriggerEqualsToTwoAndAgeLessThen30() {
+    void testGetCalculateRiskLevelWhenNumTriggerEqualsToTwoAndAgeLessThen30() {
         // Given
         long age = 29;
         String gender = "M";
@@ -192,7 +199,7 @@ class ReportServiceImplTest {
     }
 
     @Test
-    void getCalculateRiskLevelWhenNumTriggerEqualsToThreeAndAgeLessThen30() {
+    void testGtCalculateRiskLevelWhenNumTriggerEqualsToThreeAndAgeLessThen30() {
         // Given
         long age = 29;
         String gender = "M";
@@ -205,4 +212,5 @@ class ReportServiceImplTest {
         assertThat(riskLevel).isEqualTo("In Danger");
 
     }
+
 }

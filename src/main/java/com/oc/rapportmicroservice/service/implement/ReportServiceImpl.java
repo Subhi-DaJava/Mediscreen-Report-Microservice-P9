@@ -4,12 +4,12 @@ import com.oc.rapportmicroservice.exception.ResourceNotFoundException;
 import com.oc.rapportmicroservice.model.Note;
 import com.oc.rapportmicroservice.model.Patient;
 import com.oc.rapportmicroservice.model.Report;
+import com.oc.rapportmicroservice.service.NoteService;
+import com.oc.rapportmicroservice.service.PatientService;
 import com.oc.rapportmicroservice.service.ReportService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDate;
 import java.time.Period;
@@ -21,22 +21,12 @@ import java.util.List;
 public class ReportServiceImpl implements ReportService {
     private static final Logger logger = LoggerFactory.getLogger(ReportServiceImpl.class);
 
-    private final RestTemplate restTemplate;
+    private final PatientService patientService;
+    private final NoteService noteService;
 
-    @Value("${API_PATIENTS_DOCKER_PAT_ID}")
-    private String patientUrlDockerByPatId;
-
-    @Value("${API_NOTES_DOCKER_PAT_ID}")
-    private String noteUrlDockerByPatId;
-
-    @Value("${API_PATIENTS_DOCKER_PAT_NAME}")
-    private String patientUrlDockerByPatName;
-
-    @Value("${API_NOTES_DOCKER_PAT_NAME}")
-    private String noteUrlDockerByPatName;
-
-    public ReportServiceImpl(RestTemplate restTemplate) {
-        this.restTemplate = restTemplate;
+    public ReportServiceImpl(PatientService patientService, NoteService noteService) {
+        this.patientService = patientService;
+        this.noteService = noteService;
     }
 
     @Override
@@ -44,16 +34,14 @@ public class ReportServiceImpl implements ReportService {
         logger.debug("getReportByPatId method starts here, from ReportServiceImpl");
 
         //Patient patient = restTemplate.getForObject(patientUrlLocalByPatId, Patient.class, patientId);
-        Patient patient = restTemplate.getForObject(patientUrlDockerByPatId, Patient.class, patientId);
-        //Patient patient = restTemplate.getForObject("http://localhost:8081/api/patients/{id}", Patient.class, patientId);
+        Patient patient = patientService.getPatientByPatId(patientId);
 
         //Note[] notes = restTemplate.getForObject(noteUrlLocalByPatId, Note[].class, patientId);
-        Note[] notes = restTemplate.getForObject(noteUrlDockerByPatId, Note[].class, patientId);
-        //Note[] notes = restTemplate.getForObject("http://localhost:8082/api/notes/by-patId/{patId}", Note[].class, patientId);
+        Note[] notes = noteService.getNotesByPatId(patientId);
 
-        if (patient == null) {
-            logger.error("No Patient found with this PatientId:{%d}".formatted(patientId));
-            throw new ResourceNotFoundException("No Patient found with this patient id:{%d} in the database.".formatted(patientId));
+        if (notes == null || notes.length == 0) {
+            logger.error("No notes found for PatientId: {}", patientId);
+            throw new ResourceNotFoundException("No notes found for patient id: " + patientId + " in the database.");
         }
 
         logger.info("Report for patient with id:{} has been successfully generated, from getReportByPatId method, in ReportServiceImpl", patientId);
@@ -65,18 +53,15 @@ public class ReportServiceImpl implements ReportService {
     public Report getReportByPatLastName(String patientName) {
         logger.debug("getReportByPatLastName method starts here, from ReportController");
         //Patient patient = restTemplate.getForObject(patientUrlLocalByPatName, Patient.class, patientName);
-        Patient patient = restTemplate.getForObject(patientUrlDockerByPatName, Patient.class, patientName);
-
+        Patient patient = patientService.getPatientByPatLastName(patientName);
 
         //Note[] notes = restTemplate.getForObject(noteUrlLocalByPatName, Note[].class, patientName);
-        Note[] notes = restTemplate.getForObject(noteUrlDockerByPatName, Note[].class, patientName);
-        //Note[] notes = restTemplate.getForObject("http://localhost:8082/api/notes/by-lastName/{lastName}", Note[].class, patientName);
+        Note[] notes = noteService.getNotesByPatLastName(patientName);
 
-        if (patient == null) {
-            logger.error("No Patient found with this PatientLastName:{%s}".formatted(patientName));
-            throw new ResourceNotFoundException("No Patient found with this patient id:{%s} in the database.".formatted(patientName));
+        if (notes == null || notes.length == 0) {
+            logger.error("No notes found for PatientLastName: {}", patientName);
+            throw new ResourceNotFoundException("No notes found for patient lastName: " + patientName + " in the database.");
         }
-
         logger.info("Report for patient with lastName:{} has been successfully generated, from getReportPatLastName method, in ReportServiceImpl", patientName);
 
         return analyzeNotes(patient, notes);
@@ -129,6 +114,7 @@ public class ReportServiceImpl implements ReportService {
         logger.debug("countTriggerWords method starts here, from ReportController");
         List<String> triggerWords = Arrays.asList(
                 "hémoglobine a1c", "microalbumine", "taille", "poids", "fumeur", "anormal", "cholestérol", "vertige", "rechute", "réaction", "anticorps");
+        //"BODY HEIGHT", "BODY WEIGHT", "ABNORMAL", "REACTION", "SMOKER", "CHOLESTEROL", "ANTIBODIES", "HEMOGLOBIN A1C", "DIZZINESS", "MICRO ALBUMIN", "RELAPSE");
 
         long count = comments.stream()
                 .map(String::toLowerCase)
