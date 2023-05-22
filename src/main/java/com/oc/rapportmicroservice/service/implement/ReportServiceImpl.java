@@ -36,6 +36,11 @@ public class ReportServiceImpl implements ReportService {
         //Patient patient = restTemplate.getForObject(patientUrlLocalByPatId, Patient.class, patientId);
         Patient patient = patientService.getPatientByPatId(patientId);
 
+        if(patient == null) {
+            logger.error("No notes found for PatientId: {}", patientId);
+            throw new ResourceNotFoundException("No Patient found in the database.");
+        }
+
         //Note[] notes = restTemplate.getForObject(noteUrlLocalByPatId, Note[].class, patientId);
         Note[] notes = noteService.getNotesByPatId(patientId);
 
@@ -54,6 +59,11 @@ public class ReportServiceImpl implements ReportService {
         logger.debug("getReportByPatLastName method starts here, from ReportController");
         //Patient patient = restTemplate.getForObject(patientUrlLocalByPatName, Patient.class, patientName);
         Patient patient = patientService.getPatientByPatLastName(patientName);
+
+        if(patient == null) {
+            logger.error("No notes found for PatientId: {}", patientName);
+            throw new ResourceNotFoundException("No Patient found in the database.");
+        }
 
         //Note[] notes = restTemplate.getForObject(noteUrlLocalByPatName, Note[].class, patientName);
         Note[] notes = noteService.getNotesByPatLastName(patientName);

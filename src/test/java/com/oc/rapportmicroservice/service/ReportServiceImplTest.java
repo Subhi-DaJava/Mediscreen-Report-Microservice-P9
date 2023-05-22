@@ -57,6 +57,22 @@ class ReportServiceImplTest {
     }
 
     @Test
+    void testGetReportByPatIdShouldThrowNoPatientError() {
+        // Given
+        Long patientId = 5L;
+
+        when(patientService.getPatientByPatId(patientId)).thenReturn(null);
+
+        // Then
+        assertThatThrownBy(()-> reportService.getReportByPatId(patientId))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining("No Patient found in the database.");
+
+        verify(patientService, times(1)).getPatientByPatId(anyLong());
+
+    }
+
+    @Test
     void testGetReportByPatIdShouldThrowError() {
         // Given
         Long patientId = 5L;
@@ -108,6 +124,21 @@ class ReportServiceImplTest {
 
     }
 
+    @Test
+    void testGetReportByPatLastNameShouldThrowNoPatientError() {
+        // Given
+       String lastName = "lastName";
+
+        when(patientService.getPatientByPatLastName(lastName)).thenReturn(null);
+
+        // Then
+        assertThatThrownBy(()-> reportService.getReportByPatLastName(lastName))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining("No Patient found in the database.");
+
+        verify(patientService, times(1)).getPatientByPatLastName(lastName);
+
+    }
     @Test
     void testGetReportByPatLastNameShouldThrowError() {
         // Given

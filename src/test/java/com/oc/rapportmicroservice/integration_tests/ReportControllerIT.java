@@ -89,6 +89,22 @@ class ReportControllerIT {
                 .andReturn();
 
     }
+    @Test
+    void testGetReportByPatIdShouldThrowNoPatientError() throws Exception {
+        // Given
+        Long patId = 2L;
+
+        when(patientService.getPatientByPatId(patId)).thenReturn(null);
+
+        // When
+        mockMvc.perform(post("/assess/id")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .param("patId", String.valueOf(patId)))
+                .andExpect(status().isNotFound())
+                .andReturn();
+
+    }
+
 
     @Test
     void testGetReportByPatLastNameShouldGenerateReport() throws Exception {
@@ -123,6 +139,22 @@ class ReportControllerIT {
 
         Note[] notes = {};
         when(noteService.getNotesByPatLastName(lastName)).thenReturn(notes);
+        // When
+        mockMvc.perform(post("/assess/familyName")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .param("familyName", lastName))
+                .andExpect(status().isNotFound())
+                .andReturn();
+
+    }
+
+    @Test
+    void testGetReportByPatLastNameShouldThrowNoPatientError() throws Exception {
+        // Given
+       String lastName = "lastName";
+
+        when(patientService.getPatientByPatLastName(lastName)).thenReturn(null);
+
         // When
         mockMvc.perform(post("/assess/familyName")
                         .contentType(MediaType.APPLICATION_JSON)

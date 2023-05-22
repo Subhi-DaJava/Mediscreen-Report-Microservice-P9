@@ -22,13 +22,13 @@ public class ReportController {
 
     @PostMapping("/id")
     public ResponseEntity<Report> getReportByPatId(@RequestParam Long patId) {
-        logger.debug("gerReportByPatId starts here from ReportController");
+        logger.debug("gerReportByPatId starts here in ReportController");
         Report report = reportService.getReportByPatId(patId);
         if (report == null) {
-            logger.debug("No report generated, cause No resource related");
-            throw new ResourceNotFoundException("No resource related!");
+            logger.debug("No report generated, no related resource found");
+            throw new ResourceNotFoundException("No resource found!");
         }
-        logger.info("Report for the patient with id:{} has been successfully generated, from ReportController", patId);
+        logger.info("Report generated successfully for the patient with ID: {}", patId);
         return ResponseEntity.ok(report);
     }
 
@@ -37,10 +37,10 @@ public class ReportController {
         logger.debug("gerReportByPatLastName starts here from ReportController");
         Report report = reportService.getReportByPatLastName(familyName);
         if (report == null) {
-            logger.debug("No report generated, cause No resource related");
-            throw new ResourceNotFoundException("No resource related!");
+            logger.debug("No report generated, no related resource found");
+            throw new ResourceNotFoundException("No resource found!");
         }
-        logger.info("Report for the patient with lastName:{} has been successfully generated, from ReportController", familyName);
+        logger.info("Report generated successfully for the patient with last name: {}", familyName);
         return ResponseEntity.ok(report);
     }
 }

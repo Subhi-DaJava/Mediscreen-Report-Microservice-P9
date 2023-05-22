@@ -6,7 +6,7 @@ public class Report {
 
     private Long patId;
     private String patFullName;
-    private String diabetesAssessment; // (age 73,M) : Borderline
+    private String diabetesAssessment;
 
     public Report() {
     }
